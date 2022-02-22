@@ -21,7 +21,6 @@
     "test": "npm run lint && node ./node_modules/cucumber/bin/cucumber.js features/ -p verify && node ./node_modules/cucumber/bin/cucumber.js features/ -p verify -m mmap && node ./node_modules/cucumber/bin/cucumber.js features/ -p mld && node ./node_modules/cucumber/bin/cucumber.js features/ -p mld -m mmap",
     "clean": "rm -rf test/cache",
     "docs": "./scripts/build_api_docs.sh",
-    "install": "node-pre-gyp install --fallback-to-build=false || ./scripts/node_install.sh",
     "nodejs-tests": "make -C test/data && ./lib/binding/osrm-datastore test/data/ch/monaco.osrm && node test/nodejs/index.js | faucet"
   },
   "repository": {
