@@ -417,11 +417,13 @@ std::
     }
 
     // Extraction containers and restriction parser
+    StringMap string_map;
     ExtractionContainers extraction_containers;
     ExtractorCallbacks::ClassesMap classes_map;
     LaneDescriptionMap turn_lane_map;
     auto extractor_callbacks =
-        std::make_unique<ExtractorCallbacks>(extraction_containers,
+        std::make_unique<ExtractorCallbacks>(string_map,
+                                             extraction_containers,
                                              classes_map,
                                              turn_lane_map,
                                              scripting_environment.GetProfileProperties());
