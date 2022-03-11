@@ -56,6 +56,8 @@ struct MergerConfig final : storage::IOConfig
 
     std::string data_version = "";
 
+    unsigned small_component_size = 1000;
+
     bool use_metadata = false;
     bool parse_conditionals = false;
     bool use_locations_cache = true;
