@@ -49,8 +49,9 @@ class Merger
     void writeOSMData(
         extractor::ExtractionContainers &extraction_containers,
         extractor::ExtractorCallbacks::ClassesMap &classes_map,
-        extractor::ScriptingEnvironment &scripting_environment_first,
-        extractor::ScriptingEnvironment &scripting_environment_second);
+        std::vector<std::string> &class_names,
+        std::vector<std::vector<std::string>> &excludable_classes,
+        extractor::ScriptingEnvironment &scripting_environment);
 
     EdgeID BuildEdgeExpandedGraph(
         // input data

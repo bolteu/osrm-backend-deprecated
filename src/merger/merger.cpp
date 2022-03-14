@@ -42,11 +42,48 @@ namespace merger
 
 namespace
 {
+void classNamesUnion(std::vector<std::string> &accumulator,
+                     const std::vector<std::string> &class_names)
+{
+    for (const auto &name : class_names)
+    {
+        auto iter = std::find(accumulator.begin(), accumulator.end(), name);
+        if (iter == accumulator.end())
+        {
+            accumulator.push_back(name);
+        }
+    }
+}
+
+void excludeableClassesUnion(std::set<std::set<std::string>> &accumulator,
+                             const std::vector<std::vector<std::string>> &excludable_classes)
+{
+    for (const auto &combination : excludable_classes)
+    {
+        std::set<std::string> combination_set(combination.begin(), combination.end());
+        auto iter = accumulator.find(combination_set);
+        if (iter == accumulator.end())
+        {
+            accumulator.insert(combination_set);
+        }
+    }
+}
+
 // Converts the class name map into a fixed mapping of index to name
 void SetClassNames(const std::vector<std::string> &class_names,
                    extractor::ExtractorCallbacks::ClassesMap &classes_map,
                    extractor::ProfileProperties &profile_properties)
 {
+    // util::Log() << "==== class_names in SetClassName ====";
+    // for (const auto &name: class_names)
+    // {
+    //     util::Log() << name;
+    // }
+    // util::Log() << "==== class_map in SetClassName ====";
+    // for (const auto &pair: classes_map)
+    // {
+    //     util::Log() << pair.first;
+    // }
     // if we get a list of class names we can validate if we set invalid classes
     // and add classes that were never reference
     if (!class_names.empty())
@@ -98,6 +135,20 @@ void SetExcludableClasses(const extractor::ExtractorCallbacks::ClassesMap &class
                           const std::vector<std::vector<std::string>> &excludable_classes,
                           extractor::ProfileProperties &profile_properties)
 {
+    // util::Log() << "==== excludable_classes in SetExcludableClasses ====";
+    // for (const auto &array: excludable_classes)
+    // {
+    //     util::Log() << "===";
+    //     for (const auto &element: array)
+    //     {
+    //         util::Log() << element;
+    //     }
+    // }
+    // util::Log() << "==== class_map in SetExcludableClasses ====";
+    // for (const auto &pair: classes_map)
+    // {
+    //     util::Log() << pair.first;
+    // }
     if (excludable_classes.size() > extractor::MAX_EXCLUDABLE_CLASSES)
     {
         throw util::exception("Only " + std::to_string(extractor::MAX_EXCLUDABLE_CLASSES) +
@@ -180,18 +231,33 @@ int Merger::run(extractor::ScriptingEnvironment &scripting_environment_first, ex
         config.profile_path_second,
         2);
 
-    util::Log() << "==== Classes map result ====";
-    for (std::pair<std::string, extractor::ClassData> element : classes_map)
+    // util::Log() << "==== Classes map result ====";
+    // for (std::pair<std::string, extractor::ClassData> element : classes_map)
+    // {
+    //     util::Log() << element.first << " :: " << unsigned(element.second);
+    // }
+
+    std::vector<std::string> class_names;
+    classNamesUnion(class_names, scripting_environment_first.GetClassNames());
+    classNamesUnion(class_names, scripting_environment_second.GetClassNames());
+
+    std::set<std::set<std::string>> excludeable_classes_set;
+    std::vector<std::vector<std::string>> excludeable_classes;
+    excludeableClassesUnion(excludeable_classes_set, scripting_environment_first.GetExcludableClasses());
+    excludeableClassesUnion(excludeable_classes_set, scripting_environment_second.GetExcludableClasses());
+    for (const auto &combination_set : excludeable_classes_set)
     {
-        util::Log() << element.first << " :: " << unsigned(element.second);
+        excludeable_classes.push_back(std::vector<std::string>(combination_set.begin(), combination_set.end()));
     }
 
     writeTimestamp();
+    // use first scripting_environment as profile accumulator
     writeOSMData(
         extraction_containers,
         classes_map,
-        scripting_environment_first,
-        scripting_environment_second);
+        class_names,
+        excludeable_classes,
+        scripting_environment_first);
 
     TIMER_STOP(extracting);
     util::Log() << "extraction finished after " << TIMER_SEC(extracting) << "s";
@@ -269,6 +335,9 @@ int Merger::run(extractor::ScriptingEnvironment &scripting_environment_first, ex
 
     const auto number_of_node_based_nodes = node_based_graph.GetNumberOfNodes();
 
+    /*
+    TODO: .GetProfileProperties().GetWeightMultiplier() and .processTurn and create street_name_suffix_table (coordinates e.g. NE)
+    */
     const auto number_of_edge_based_nodes = BuildEdgeExpandedGraph(
             node_based_graph,
             coordinates,
@@ -289,6 +358,9 @@ int Merger::run(extractor::ScriptingEnvironment &scripting_environment_first, ex
             edge_based_edge_list,
             ebg_connectivity_checksum);
 
+    /*
+    street_name_suffix_table used from scripting_environment (coordinates e.g. NE)
+    */
     ProcessGuidanceTurns(
         node_based_graph,
         edge_based_nodes_container,
@@ -610,19 +682,16 @@ void Merger::writeTimestamp()
 void Merger::writeOSMData(
     extractor::ExtractionContainers &extraction_containers,
     extractor::ExtractorCallbacks::ClassesMap &classes_map,
-    extractor::ScriptingEnvironment &scripting_environment_first,
-    extractor::ScriptingEnvironment &scripting_environment_second)
+    std::vector<std::string> &class_names,
+    std::vector<std::vector<std::string>> &excludable_classes,
+    extractor::ScriptingEnvironment &scripting_environment)
 {
-    // just to get it to compile
-    scripting_environment_second.GetProfileProperties();
-    // TODO: use first scripting_environment for now
-    extraction_containers.PrepareData(scripting_environment_first,
+    extraction_containers.PrepareData(scripting_environment,
                                       config.GetPath(".osrm").string(),
                                       config.GetPath(".osrm.names").string());
 
-    auto profile_properties = scripting_environment_first.GetProfileProperties();
-    SetClassNames(scripting_environment_first.GetClassNames(), classes_map, profile_properties);
-    auto excludable_classes = scripting_environment_first.GetExcludableClasses();
+    auto profile_properties = scripting_environment.GetProfileProperties();
+    SetClassNames(class_names, classes_map, profile_properties);
     SetExcludableClasses(classes_map, excludable_classes, profile_properties);
     extractor::files::writeProfileProperties(config.GetPath(".osrm.properties").string(), profile_properties);
 }
