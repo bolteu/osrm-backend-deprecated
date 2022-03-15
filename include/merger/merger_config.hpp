@@ -1,9 +1,11 @@
 #ifndef MERGER_CONFIG_HPP
 #define MERGER_CONFIG_HPP
 
+#include "storage/io_config.hpp"
+
 #include <boost/filesystem/path.hpp>
 
-#include "storage/io_config.hpp"
+#include <map>
 
 namespace osrm
 {
@@ -48,14 +50,11 @@ struct MergerConfig final : storage::IOConfig
         IOConfig::UseDefaultOutputNames(base);
     }
 
-    boost::filesystem::path input_path_first;
-    boost::filesystem::path profile_path_first;
-
-    boost::filesystem::path input_path_second;
-    boost::filesystem::path profile_path_second;
+    std::map<boost::filesystem::path, std::vector<boost::filesystem::path>> profile_to_input;
 
     std::string data_version = "";
 
+    unsigned requested_num_threads;
     unsigned small_component_size = 1000;
 
     bool use_metadata = false;

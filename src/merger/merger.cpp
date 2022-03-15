@@ -74,16 +74,6 @@ void SetClassNames(const std::vector<std::string> &class_names,
                    extractor::ExtractorCallbacks::ClassesMap &classes_map,
                    extractor::ProfileProperties &profile_properties)
 {
-    // util::Log() << "==== class_names in SetClassName ====";
-    // for (const auto &name: class_names)
-    // {
-    //     util::Log() << name;
-    // }
-    // util::Log() << "==== class_map in SetClassName ====";
-    // for (const auto &pair: classes_map)
-    // {
-    //     util::Log() << pair.first;
-    // }
     // if we get a list of class names we can validate if we set invalid classes
     // and add classes that were never reference
     if (!class_names.empty())
@@ -135,20 +125,6 @@ void SetExcludableClasses(const extractor::ExtractorCallbacks::ClassesMap &class
                           const std::vector<std::vector<std::string>> &excludable_classes,
                           extractor::ProfileProperties &profile_properties)
 {
-    // util::Log() << "==== excludable_classes in SetExcludableClasses ====";
-    // for (const auto &array: excludable_classes)
-    // {
-    //     util::Log() << "===";
-    //     for (const auto &element: array)
-    //     {
-    //         util::Log() << element;
-    //     }
-    // }
-    // util::Log() << "==== class_map in SetExcludableClasses ====";
-    // for (const auto &pair: classes_map)
-    // {
-    //     util::Log() << pair.first;
-    // }
     if (excludable_classes.size() > extractor::MAX_EXCLUDABLE_CLASSES)
     {
         throw util::exception("Only " + std::to_string(extractor::MAX_EXCLUDABLE_CLASSES) +
@@ -203,51 +179,69 @@ std::vector<extractor::CompressedNodeBasedGraphEdge> toEdgeList(const util::Node
 }
 } // namespace
 
-int Merger::run(extractor::ScriptingEnvironment &scripting_environment_first, extractor::ScriptingEnvironment &scripting_environment_second)
+int Merger::run()
 {
     TIMER_START(extracting);
+
+    const unsigned recommended_num_threads = std::thread::hardware_concurrency();
+    const auto number_of_threads = std::min(recommended_num_threads, config.requested_num_threads);
+
+#if TBB_VERSION_MAJOR == 2020
+    tbb::global_control gc(tbb::global_control::max_allowed_parallelism,
+                           config.requested_num_threads);
+#else
+    tbb::task_scheduler_init init(config.requested_num_threads);
+    BOOST_ASSERT(init.is_active());
+#endif
 
     StringMap string_map;
     extractor::ExtractionContainers extraction_containers;
     extractor::ExtractorCallbacks::ClassesMap classes_map;
     extractor::LaneDescriptionMap turn_lane_map;
 
-    parseOSMData(
-        string_map,
-        extraction_containers,
-        classes_map,
-        turn_lane_map,
-        scripting_environment_first,
-        config.input_path_first,
-        config.profile_path_first,
-        2);
-    parseOSMData(
-        string_map,
-        extraction_containers,
-        classes_map,
-        turn_lane_map,
-        scripting_environment_second,
-        config.input_path_second,
-        config.profile_path_second,
-        2);
-
-    // util::Log() << "==== Classes map result ====";
-    // for (std::pair<std::string, extractor::ClassData> element : classes_map)
-    // {
-    //     util::Log() << element.first << " :: " << unsigned(element.second);
-    // }
-
     std::vector<std::string> class_names;
-    classNamesUnion(class_names, scripting_environment_first.GetClassNames());
-    classNamesUnion(class_names, scripting_environment_second.GetClassNames());
-
     std::set<std::set<std::string>> excludeable_classes_set;
+
+    std::map<boost::filesystem::path, std::vector<boost::filesystem::path>>::iterator it = config.profile_to_input.begin();
+    extractor::Sol2ScriptingEnvironment scripting_environment_first(it->first.string());
+        parseOSMFile(
+            string_map,
+            extraction_containers,
+            classes_map,
+            turn_lane_map,
+            scripting_environment_first,
+            it->first,
+            number_of_threads,
+            class_names,
+            excludeable_classes_set);
+    it++;
+    
+    while (it != config.profile_to_input.end())
+    {
+        extractor::Sol2ScriptingEnvironment scripting_environment(it->first.string());
+        parseOSMFile(
+            string_map,
+            extraction_containers,
+            classes_map,
+            turn_lane_map,
+            scripting_environment,
+            it->first,
+            number_of_threads,
+            class_names,
+            excludeable_classes_set);
+        it++;
+    }
+
     std::vector<std::vector<std::string>> excludeable_classes;
-    excludeableClassesUnion(excludeable_classes_set, scripting_environment_first.GetExcludableClasses());
-    excludeableClassesUnion(excludeable_classes_set, scripting_environment_second.GetExcludableClasses());
     for (const auto &combination_set : excludeable_classes_set)
     {
         excludeable_classes.push_back(std::vector<std::string>(combination_set.begin(), combination_set.end()));
+    }
+
+    util::Log() << "==== Classes map result ====";
+    for (std::pair<std::string, extractor::ClassData> element : classes_map)
+    {
+        util::Log() << element.first << " :: " << unsigned(element.second);
     }
 
     writeTimestamp();
@@ -426,6 +420,34 @@ int Merger::run(extractor::ScriptingEnvironment &scripting_environment_first, ex
 
     util::Log(logINFO) << "Merge is done!";
     return 0;
+}
+
+void Merger::parseOSMFile(
+    StringMap &string_map,
+    extractor::ExtractionContainers &extraction_containers,
+    extractor::ExtractorCallbacks::ClassesMap &classes_map,
+    extractor::LaneDescriptionMap &turn_lane_map,
+    extractor::ScriptingEnvironment &scripting_environment,
+    const boost::filesystem::path profile_path,
+    const unsigned number_of_threads,
+    std::vector<std::string> &class_names,
+    std::set<std::set<std::string>> &excludeable_classes_set)
+{
+    for (const auto &input_file : config.profile_to_input[profile_path])
+    {
+        parseOSMData(
+            string_map,
+            extraction_containers,
+            classes_map,
+            turn_lane_map,
+            scripting_environment,
+            input_file,
+            profile_path,
+            number_of_threads);
+    }
+
+    classNamesUnion(class_names, scripting_environment.GetClassNames());
+    excludeableClassesUnion(excludeable_classes_set, scripting_environment.GetExcludableClasses());
 }
 
 void Merger::parseOSMData(

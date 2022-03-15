@@ -7,6 +7,7 @@
 #include "extractor/maneuver_override.hpp"
 #include "extractor/packed_osm_ids.hpp"
 #include "extractor/restriction_graph.hpp"
+#include "extractor/scripting_environment_lua.hpp"
 
 #include "guidance/guidance_processing.hpp"
 #include "guidance/turn_data_container.hpp"
@@ -27,12 +28,23 @@ class Merger
 {
   public:
     Merger(MergerConfig merger_config) : config(std::move(merger_config)) {}
-    int run(extractor::ScriptingEnvironment &scripting_environment_first, extractor::ScriptingEnvironment &scripting_environment_second);
+    int run();
   private:
     using MapKey = std::tuple<std::string, std::string, std::string, std::string, std::string>;
     using MapVal = unsigned;
     using StringMap = std::unordered_map<MapKey, MapVal>;
     MergerConfig config;
+
+    void parseOSMFile(
+        StringMap &string_map,
+        extractor::ExtractionContainers &extraction_containers,
+        extractor::ExtractorCallbacks::ClassesMap &classes_map,
+        extractor::LaneDescriptionMap &turn_lane_map,
+        extractor::ScriptingEnvironment &scripting_environment,
+        const boost::filesystem::path profile_path,
+        const unsigned number_of_threads,
+        std::vector<std::string> &class_names,
+        std::set<std::set<std::string>> &excludeable_classes_set);
 
     void parseOSMData(
         StringMap &string_map,
