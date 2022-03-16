@@ -204,16 +204,16 @@ int Merger::run()
 
     std::map<boost::filesystem::path, std::vector<boost::filesystem::path>>::iterator it = config.profile_to_input.begin();
     extractor::Sol2ScriptingEnvironment scripting_environment_first(it->first.string());
-        parseOSMFile(
-            string_map,
-            extraction_containers,
-            classes_map,
-            turn_lane_map,
-            scripting_environment_first,
-            it->first,
-            number_of_threads,
-            class_names,
-            excludeable_classes_set);
+    parseOSMFile(
+        string_map,
+        extraction_containers,
+        classes_map,
+        turn_lane_map,
+        scripting_environment_first,
+        it->first,
+        number_of_threads,
+        class_names,
+        excludeable_classes_set);
     it++;
     
     while (it != config.profile_to_input.end())
@@ -238,12 +238,6 @@ int Merger::run()
         excludeable_classes.push_back(std::vector<std::string>(combination_set.begin(), combination_set.end()));
     }
 
-    util::Log() << "==== Classes map result ====";
-    for (std::pair<std::string, extractor::ClassData> element : classes_map)
-    {
-        util::Log() << element.first << " :: " << unsigned(element.second);
-    }
-
     writeTimestamp();
     // use first scripting_environment as profile accumulator
     writeOSMData(
@@ -252,6 +246,12 @@ int Merger::run()
         class_names,
         excludeable_classes,
         scripting_environment_first);
+
+    util::Log() << "==== Classes map result ====";
+    for (std::pair<std::string, extractor::ClassData> element : classes_map)
+    {
+        util::Log() << element.first << " :: " << unsigned(element.second);
+    }
 
     TIMER_STOP(extracting);
     util::Log() << "extraction finished after " << TIMER_SEC(extracting) << "s";

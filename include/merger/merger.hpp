@@ -88,22 +88,26 @@ class Merger
         util::DeallocatingVector<extractor::EdgeBasedEdge> &edge_based_edge_list,
         std::uint32_t &connectivity_checksum);
 
-    void FindComponents(unsigned max_edge_id,
-                        const util::DeallocatingVector<extractor::EdgeBasedEdge> &input_edge_list,
-                        const std::vector<extractor::EdgeBasedNodeSegment> &input_node_segments,
-                        extractor::EdgeBasedNodeDataContainer &nodes_container) const;
-    void BuildRTree(std::vector<extractor::EdgeBasedNodeSegment> edge_based_node_segments,
-                    const std::vector<util::Coordinate> &coordinates);
+    void FindComponents(
+        unsigned max_edge_id,
+        const util::DeallocatingVector<extractor::EdgeBasedEdge> &input_edge_list,
+        const std::vector<extractor::EdgeBasedNodeSegment> &input_node_segments,
+        extractor::EdgeBasedNodeDataContainer &nodes_container) const;
+    
+    void BuildRTree(
+        std::vector<extractor::EdgeBasedNodeSegment> edge_based_node_segments,
+        const std::vector<util::Coordinate> &coordinates);
 
-    void ProcessGuidanceTurns(const util::NodeBasedDynamicGraph &node_based_graph,
-                              const extractor::EdgeBasedNodeDataContainer &edge_based_node_container,
-                              const std::vector<util::Coordinate> &node_coordinates,
-                              const extractor::CompressedEdgeContainer &compressed_edge_container,
-                              const std::unordered_set<NodeID> &barrier_nodes,
-                              const extractor::RestrictionGraph &restriction_graph,
-                              const extractor::NameTable &name_table,
-                              extractor::LaneDescriptionMap lane_description_map,
-                              extractor::ScriptingEnvironment &scripting_environment);
+    void ProcessGuidanceTurns(
+        const util::NodeBasedDynamicGraph &node_based_graph,
+        const extractor::EdgeBasedNodeDataContainer &edge_based_node_container,
+        const std::vector<util::Coordinate> &node_coordinates,
+        const extractor::CompressedEdgeContainer &compressed_edge_container,
+        const std::unordered_set<NodeID> &barrier_nodes,
+        const extractor::RestrictionGraph &restriction_graph,
+        const extractor::NameTable &name_table,
+        extractor::LaneDescriptionMap lane_description_map,
+        extractor::ScriptingEnvironment &scripting_environment);
 };
 }
 }

@@ -59,20 +59,6 @@ ExtractorCallbacks::ExtractorCallbacks(StringMap &string_map,
     lane_description_map.data[TurnLaneDescription()] = 0;
 }
 
-// ExtractorCallbacks::ExtractorCallbacks(ExtractionContainers &extraction_containers_,
-//                                        std::unordered_map<std::string, ClassData> &classes_map,
-//                                        LaneDescriptionMap &lane_description_map,
-//                                        const ProfileProperties &properties)
-//     : external_memory(extraction_containers_), classes_map(classes_map),
-//       lane_description_map(lane_description_map),
-//       fallback_to_duration(properties.fallback_to_duration),
-//       force_split_edges(properties.force_split_edges)
-// {
-//     // we reserved 0, 1, 2, 3, 4 for the empty case
-//     string_map[MapKey("", "", "", "", "")] = 0;
-//     lane_description_map.data[TurnLaneDescription()] = 0;
-// }
-
 /**
  * Takes the node position from osmium and the filtered properties from the lua
  * profile and saves them to external memory.
@@ -396,7 +382,6 @@ void ExtractorCallbacks::ProcessWay(const osmium::Way &input_way, const Extracti
                             parsed_way.exits};
             auto v = MapVal{name_id};
             string_map.emplace(std::move(k), std::move(v));
-            // util::Log() << "==== Adding to string map " << parsed_way.name << " -> " << parsed_way.destinations << " size " << string_map.size();
         }
         else
         {

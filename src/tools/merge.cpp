@@ -33,7 +33,11 @@ return_code parseArguments(int argc,
         "threads,t",
         boost::program_options::value<unsigned int>(&merger_config.requested_num_threads)
             ->default_value(std::thread::hardware_concurrency()),
-        "Number of threads to use");
+        "Number of threads to use")(
+        "output,o",
+        boost::program_options::value<boost::filesystem::path>(&merger_config.output_path)
+            ->default_value(boost::filesystem::path("merged")),
+        "Prefix for the output files");
 
     boost::program_options::options_description hidden_options("Hidden options");
     hidden_options.add_options()(
@@ -129,7 +133,7 @@ int main(int argc, char *argv[])
         return EXIT_SUCCESS;
     }
 
-    merger_config.UseDefaultOutputNames(boost::filesystem::path("merged"));
+    merger_config.UseDefaultOutputNames(merger_config.output_path);
 
     for (const auto &pair : merger_config.profile_to_input)
     {

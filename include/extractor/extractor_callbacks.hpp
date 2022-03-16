@@ -80,10 +80,6 @@ class ExtractorCallbacks
                                 std::unordered_map<std::string, ClassData> &classes_map,
                                 LaneDescriptionMap &lane_description_map,
                                 const ProfileProperties &properties);
-    // explicit ExtractorCallbacks(ExtractionContainers &extraction_containers,
-    //                             std::unordered_map<std::string, ClassData> &classes_map,
-    //                             LaneDescriptionMap &lane_description_map,
-    //                             const ProfileProperties &properties);
 
     ExtractorCallbacks(const ExtractorCallbacks &) = delete;
     ExtractorCallbacks &operator=(const ExtractorCallbacks &) = delete;

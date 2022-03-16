@@ -51,6 +51,7 @@ struct MergerConfig final : storage::IOConfig
     }
 
     std::map<boost::filesystem::path, std::vector<boost::filesystem::path>> profile_to_input;
+    boost::filesystem::path output_path;
 
     std::string data_version = "";
 
