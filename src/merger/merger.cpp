@@ -247,12 +247,6 @@ int Merger::run()
         excludeable_classes,
         scripting_environment_first);
 
-    util::Log() << "==== Classes map result ====";
-    for (std::pair<std::string, extractor::ClassData> element : classes_map)
-    {
-        util::Log() << element.first << " :: " << unsigned(element.second);
-    }
-
     TIMER_STOP(extracting);
     util::Log() << "extraction finished after " << TIMER_SEC(extracting) << "s";
 
@@ -674,10 +668,6 @@ void Merger::parseOSMData(
     util::Log() << "Raw input contains " << number_of_nodes << " nodes, " << number_of_ways
                 << " ways, and " << number_of_relations << " relations, " << number_of_restrictions
                 << " restrictions";
-
-    util::Log() << "String map size " << string_map.size();
-    util::Log() << "Classes map size " << classes_map.size();
-    util::Log() << "Turn lane map size " << turn_lane_map.data.size();
 
     extractor_callbacks.reset();
 
