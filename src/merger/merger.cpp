@@ -42,6 +42,10 @@ namespace merger
 
 namespace
 {
+/*
+    Adds the class names to an accumulator if not present there. This function is used after each map is preprocessed
+    in order to determine the union of classes from all the maps.
+*/
 void classNamesUnion(std::vector<std::string> &accumulator,
                      const std::vector<std::string> &class_names)
 {
@@ -55,7 +59,11 @@ void classNamesUnion(std::vector<std::string> &accumulator,
     }
 }
 
-void excludeableClassesUnion(std::set<std::set<std::string>> &accumulator,
+/**
+    Adds the excludable classes to an accumulator if not present there. This function is used after each map is preprocessed
+    in order to determine the union of excludable classes from all the maps.
+*/
+void excludableClassesUnion(std::set<std::set<std::string>> &accumulator,
                              const std::vector<std::vector<std::string>> &excludable_classes)
 {
     for (const auto &combination : excludable_classes)
@@ -69,7 +77,7 @@ void excludeableClassesUnion(std::set<std::set<std::string>> &accumulator,
     }
 }
 
-// Converts the class name map into a fixed mapping of index to name
+// Converts the class name map into a fixed mapping of index to name and update the profile properties.
 void SetClassNames(const std::vector<std::string> &class_names,
                    extractor::ExtractorCallbacks::ClassesMap &classes_map,
                    extractor::ProfileProperties &profile_properties)
@@ -91,6 +99,7 @@ void SetClassNames(const std::vector<std::string> &class_names,
             if (iter == classes_map.end())
             {
                 auto index = classes_map.size();
+                // there is a hard limit on the number of classes
                 if (index > extractor::MAX_CLASS_INDEX)
                 {
                     throw util::exception("Maximum number of classes is " +
@@ -112,6 +121,7 @@ void SetClassNames(const std::vector<std::string> &class_names,
         }
     }
 
+    // update the profile properties
     for (const auto &pair : classes_map)
     {
         auto range = extractor::getClassIndexes(pair.second);
@@ -120,7 +130,7 @@ void SetClassNames(const std::vector<std::string> &class_names,
     }
 }
 
-// Converts the class name list to a mask list
+// Converts the class name list to a mask list and update the profile properties.
 void SetExcludableClasses(const extractor::ExtractorCallbacks::ClassesMap &classes_map,
                           const std::vector<std::vector<std::string>> &excludable_classes,
                           extractor::ProfileProperties &profile_properties)
@@ -154,11 +164,13 @@ void SetExcludableClasses(const extractor::ExtractorCallbacks::ClassesMap &class
 
         if (mask > 0)
         {
+            // update the profile properties with excludable classes
             profile_properties.SetExcludableClasses(combination_index++, mask);
         }
     }
 }
 
+// Convert a node-based graph to an edge list.
 std::vector<extractor::CompressedNodeBasedGraphEdge> toEdgeList(const util::NodeBasedDynamicGraph &graph)
 {
     std::vector<extractor::CompressedNodeBasedGraphEdge> edges;
@@ -179,6 +191,29 @@ std::vector<extractor::CompressedNodeBasedGraphEdge> toEdgeList(const util::Node
 }
 } // namespace
 
+/**
+ * This function is the entry point for the whole merge process. The goal of the merge
+ * step is to filter and convert the OSM geometry of multiple maps with potentially different
+ * profiles to something more fitting for routing.
+ * That includes:
+ *  - extracting turn restrictions
+ *  - splitting ways into (directional!) edge segments
+ *  - checking if nodes are barriers or traffic signal
+ *  - discarding all tag information: All relevant type information for nodes/ways
+ *    is extracted at this point.
+ *
+ * The result of this process are the following files:
+ *  .names        : Names of all streets, stored as long consecutive string with prefix sum based index
+ *  .osrm         : Nodes and edges in a intermediate format that easy to digest for osrm-contract
+ *  .properties   : The profile properties
+ *  .restrictions : Turn restrictions that are used by osrm-contract to construct the edge-expanded
+ * graph
+ *  .cnbg         : Compressed node-based graph edges
+ *  .ebg          : Edge-based graph edge data with turns, distances, durations and weights
+ *  .ebg_nodes    : Edge-based graph node data with node ids and annotation ids
+ *  .turn*        : Contains turn duration and weight penalties
+ *  etc
+ */
 int Merger::run()
 {
     TIMER_START(extracting);
@@ -194,18 +229,18 @@ int Merger::run()
     BOOST_ASSERT(init.is_active());
 #endif
 
+    // Accumulators that will contain the merged graph data: nodes, edges, classes, street names, etc
     StringMap string_map;
     extractor::ExtractionContainers extraction_containers;
     extractor::ExtractorCallbacks::ClassesMap classes_map;
     extractor::LaneDescriptionMap turn_lane_map;
-
     std::vector<std::string> class_names;
-    std::set<std::set<std::string>> excludeable_classes_set;
+    std::set<std::set<std::string>> excludable_classes_set;
 
     std::map<boost::filesystem::path, std::vector<boost::filesystem::path>>::iterator it = config.profile_to_input.begin();
     // scripting_environment_first will be used below after the merging as it contains the common profile information for all the graphs
     extractor::Sol2ScriptingEnvironment scripting_environment_first(it->first.string());
-    parseOSMFile(
+    parseOSMFiles(
         string_map,
         extraction_containers,
         classes_map,
@@ -214,13 +249,13 @@ int Merger::run()
         it->first,
         number_of_threads,
         class_names,
-        excludeable_classes_set);
+        excludable_classes_set);
     it++;
     
     while (it != config.profile_to_input.end())
     {
         extractor::Sol2ScriptingEnvironment scripting_environment(it->first.string());
-        parseOSMFile(
+        parseOSMFiles(
             string_map,
             extraction_containers,
             classes_map,
@@ -229,15 +264,18 @@ int Merger::run()
             it->first,
             number_of_threads,
             class_names,
-            excludeable_classes_set);
+            excludable_classes_set);
         it++;
     }
 
-    std::vector<std::vector<std::string>> excludeable_classes;
-    for (const auto &combination_set : excludeable_classes_set)
+    // Union of the excludable classes
+    std::vector<std::vector<std::string>> excludable_classes;
+    for (const auto &combination_set : excludable_classes_set)
     {
-        excludeable_classes.push_back(std::vector<std::string>(combination_set.begin(), combination_set.end()));
+        excludable_classes.push_back(std::vector<std::string>(combination_set.begin(), combination_set.end()));
     }
+
+    // From this point on, the data is merged between the maps.
 
     writeTimestamp();
     // Use scripting_environment_first as profile accumulator
@@ -245,7 +283,7 @@ int Merger::run()
         extraction_containers,
         classes_map,
         class_names,
-        excludeable_classes,
+        excludable_classes,
         scripting_environment_first);
 
     TIMER_STOP(extracting);
@@ -261,6 +299,7 @@ int Merger::run()
 
     TIMER_START(expansion);
 
+    // Containers for the edge-based graph
     extractor::EdgeBasedNodeDataContainer edge_based_nodes_container;
     std::vector<extractor::EdgeBasedNodeSegment> edge_based_node_segments;
     util::DeallocatingVector<extractor::EdgeBasedEdge> edge_based_edge_list;
@@ -276,6 +315,7 @@ int Merger::run()
         turn_restrictions,
         unresolved_maneuver_overrides);
 
+    // Names referenced by annotations
     extractor::NameTable name_table;
     extractor::files::readNames(config.GetPath(".osrm.names"), name_table);
 
@@ -289,12 +329,12 @@ int Merger::run()
     util::Log() << "Segregated edges count = " << segregated_edges.size();
 
     util::Log() << "Writing nodes for nodes-based and edges-based graphs ...";
-    auto const &coordinates = node_based_graph_factory.GetCoordinates();
+    const auto &coordinates = node_based_graph_factory.GetCoordinates();
     extractor::files::writeNodes(
         config.GetPath(".osrm.nbg_nodes"), coordinates, node_based_graph_factory.GetOsmNodes());
     node_based_graph_factory.ReleaseOsmNodes();
 
-    auto const &node_based_graph = node_based_graph_factory.GetGraph();
+    const auto &node_based_graph = node_based_graph_factory.GetGraph();
 
     // The osrm-partition tool requires the compressed node based graph with an embedding.
     //
@@ -401,13 +441,19 @@ int Merger::run()
     util::Log() << "Expansion: " << nodes_per_second << " nodes/sec and " << edges_per_second
                 << " edges/sec";
     util::Log() << "To prepare the data for routing, run: "
-                << "./osrm-contract " << config.GetPath(".osrm");
+                << "./osrm-partition " << config.GetPath(".osrm");
 
     util::Log(logINFO) << "Merge is done!";
     return 0;
 }
 
-void Merger::parseOSMFile(
+/**
+    For a given profile and a list of OSM input files extract, filter and convert the
+    OSM geometry for each input file to a format more fitting for routing. The preprocessed
+    data is added to containers provided as function arguments that accumulate data from
+    all the input files provided to osrm-merge.
+*/
+void Merger::parseOSMFiles(
     StringMap &string_map,
     extractor::ExtractionContainers &extraction_containers,
     extractor::ExtractorCallbacks::ClassesMap &classes_map,
@@ -416,7 +462,7 @@ void Merger::parseOSMFile(
     const boost::filesystem::path profile_path,
     const unsigned number_of_threads,
     std::vector<std::string> &class_names,
-    std::set<std::set<std::string>> &excludeable_classes_set)
+    std::set<std::set<std::string>> &excludable_classes_set)
 {
     for (const auto &input_file : config.profile_to_input[profile_path])
     {
@@ -431,10 +477,17 @@ void Merger::parseOSMFile(
             number_of_threads);
     }
 
+    // scripting_environment contains the extracted class names and excludable classes
     classNamesUnion(class_names, scripting_environment.GetClassNames());
-    excludeableClassesUnion(excludeable_classes_set, scripting_environment.GetExcludableClasses());
+    excludableClassesUnion(excludable_classes_set, scripting_environment.GetExcludableClasses());
 }
 
+/**
+    For a given profile and an OSM input file extract, filter and convert the OSM geometry
+    to a format more fitting for routing. The preprocessed data is added to containers
+    provided as function arguments that accumulate data from all the input files provided
+    to osrm-merge.
+*/
 void Merger::parseOSMData(
     StringMap &string_map,
     extractor::ExtractionContainers &extraction_containers,
@@ -478,12 +531,12 @@ void Merger::parseOSMData(
                                             turn_lane_map,
                                             scripting_environment.GetProfileProperties());
 
-    // get list of supported relation types
+    // Get list of supported relation types
     auto relation_types = scripting_environment.GetRelations();
     std::sort(relation_types.begin(), relation_types.end());
 
     std::vector<std::string> restrictions = scripting_environment.GetRestrictions();
-    // setup restriction parser
+    // Setup restriction parser
     const extractor::RestrictionParser restriction_parser(
         scripting_environment.GetProfileProperties().use_turn_restrictions,
         config.parse_conditionals,
@@ -602,10 +655,10 @@ void Merger::parseOSMData(
                     continue;
 
                 extractor::ExtractionRelation extracted_rel({rel.id(), osmium::item_type::relation});
-                for (auto const &t : rel.tags())
+                for (const auto &t : rel.tags())
                     extracted_rel.attributes.emplace_back(std::make_pair(t.key(), t.value()));
 
-                for (auto const &m : rel.members())
+                for (const auto &m : rel.members())
                 {
                     extractor::ExtractionRelation::OsmIDTyped const mid(m.ref(), m.type());
                     extracted_rel.AddMember(mid, m.role());
@@ -669,9 +722,9 @@ void Merger::parseOSMData(
     }
 }
 
+// Write the timestamp data file
 void Merger::writeTimestamp()
 {
-    // write .timestamp data file
     std::string timestamp = config.data_version;
 
     extractor::files::writeTimestamp(config.GetPath(".osrm.timestamp").string(), timestamp);
@@ -682,6 +735,12 @@ void Merger::writeTimestamp()
     util::Log() << "timestamp: " << timestamp;
 }
 
+/**
+    Write the initial data extracted from the OSM input files. This data contains:
+    - graph data: nodes, edges, barriers, traffic lights and annotations
+    - names that are referenced by annotations
+    - profile properties
+*/
 void Merger::writeOSMData(
     extractor::ExtractionContainers &extraction_containers,
     extractor::ExtractorCallbacks::ClassesMap &classes_map,
@@ -760,7 +819,6 @@ void Merger::FindComponents(unsigned number_of_edge_based_nodes,
 /**
  \brief Building an edge-expanded graph from node-based input and turn restrictions
 */
-
 EdgeID Merger::BuildEdgeExpandedGraph(
     // input data
     const util::NodeBasedDynamicGraph &node_based_graph,
@@ -830,7 +888,7 @@ EdgeID Merger::BuildEdgeExpandedGraph(
     \brief Building rtree-based nearest-neighbor data structure
 
     Saves tree into '.ramIndex' and leaves into '.fileIndex'.
- */
+*/
 void Merger::BuildRTree(std::vector<extractor::EdgeBasedNodeSegment> edge_based_node_segments,
                         const std::vector<util::Coordinate> &coordinates)
 {

@@ -35,7 +35,7 @@ class Merger
     using StringMap = std::unordered_map<MapKey, MapVal>;
     MergerConfig config;
 
-    void parseOSMFile(
+    void parseOSMFiles(
         StringMap &string_map,
         extractor::ExtractionContainers &extraction_containers,
         extractor::ExtractorCallbacks::ClassesMap &classes_map,
