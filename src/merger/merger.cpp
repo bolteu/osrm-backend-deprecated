@@ -203,6 +203,7 @@ int Merger::run()
     std::set<std::set<std::string>> excludeable_classes_set;
 
     std::map<boost::filesystem::path, std::vector<boost::filesystem::path>>::iterator it = config.profile_to_input.begin();
+    // scripting_environment_first will be used below after the merging as it contains the common profile information for all the graphs
     extractor::Sol2ScriptingEnvironment scripting_environment_first(it->first.string());
     parseOSMFile(
         string_map,
@@ -239,7 +240,7 @@ int Merger::run()
     }
 
     writeTimestamp();
-    // use first scripting_environment as profile accumulator
+    // Use scripting_environment_first as profile accumulator
     writeOSMData(
         extraction_containers,
         classes_map,
@@ -268,10 +269,6 @@ int Merger::run()
     std::vector<EdgeDistance> edge_based_node_distances;
     std::uint32_t ebg_connectivity_checksum = 0;
 
-    /*
-        TODO: Use first scripting environment as only .processTurn(...) and .GetProfileProperties().GetWeightMultiplier()
-        are used
-    */
     // Create a node-based graph from the OSRM file
     extractor::NodeBasedGraphFactory node_based_graph_factory(
         config.GetPath(".osrm"),
@@ -323,9 +320,6 @@ int Merger::run()
 
     const auto number_of_node_based_nodes = node_based_graph.GetNumberOfNodes();
 
-    /*
-    TODO: .GetProfileProperties().GetWeightMultiplier() and .processTurn and create street_name_suffix_table (coordinates e.g. NE)
-    */
     const auto number_of_edge_based_nodes = BuildEdgeExpandedGraph(
             node_based_graph,
             coordinates,
@@ -346,9 +340,6 @@ int Merger::run()
             edge_based_edge_list,
             ebg_connectivity_checksum);
 
-    /*
-    street_name_suffix_table used from scripting_environment (coordinates e.g. NE)
-    */
     ProcessGuidanceTurns(
         node_based_graph,
         edge_based_nodes_container,
