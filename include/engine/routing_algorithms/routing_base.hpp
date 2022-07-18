@@ -148,8 +148,10 @@ void annotatePath(const FacadeT &facade,
     std::vector<SegmentDuration> duration_vector;
     std::vector<DatasourceID> datasource_vector;
 
-    const auto get_segment_geometry = [&](const auto geometry_index) {
-        const auto copy = [](auto &vector, const auto range) {
+    const auto get_segment_geometry = [&](const auto geometry_index)
+    {
+        const auto copy = [](auto &vector, const auto range)
+        {
             vector.resize(range.size());
             std::copy(range.begin(), range.end(), vector.begin());
         };
@@ -228,7 +230,8 @@ void annotatePath(const FacadeT &facade,
                          datasource_vector[segment_idx],
                          osrm::guidance::TurnBearing(0),
                          osrm::guidance::TurnBearing(0),
-                         is_left_hand_driving});
+                         is_left_hand_driving,
+                         false});
         }
         BOOST_ASSERT(unpacked_path.size() > 0);
         if (facade.HasLaneData(turn_id))
@@ -245,6 +248,7 @@ void annotatePath(const FacadeT &facade,
         unpacked_path.back().weight_of_turn = turn_weight;
         unpacked_path.back().pre_turn_bearing = facade.PreTurnBearing(turn_id);
         unpacked_path.back().post_turn_bearing = facade.PostTurnBearing(turn_id);
+        unpacked_path.back().is_osrm_node = true;
     }
 
     std::size_t start_index = 0, end_index = 0;
@@ -303,7 +307,8 @@ void annotatePath(const FacadeT &facade,
                      datasource_vector[segment_idx],
                      guidance::TurnBearing(0),
                      guidance::TurnBearing(0),
-                     is_target_left_hand_driving});
+                     is_target_left_hand_driving,
+                     false});
     }
 
     if (unpacked_path.size() > 0)

@@ -65,6 +65,9 @@ struct PathData
 
     // Driving side of the turn
     bool is_left_hand_driving;
+
+    // Whether this is the first or last node of an OSRM edge
+    bool is_osrm_node;
 };
 
 struct InternalRouteResult

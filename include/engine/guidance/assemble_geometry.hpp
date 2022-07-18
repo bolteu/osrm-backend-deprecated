@@ -50,7 +50,7 @@ inline LegGeometry assembleGeometry(const datafacade::BaseDataFacade &facade,
     // fwd_segment_position:  1
     // source node fwd:       1      1 -> 2 -> 3
     // source node rev:       2 0 <- 1 <- 2
-    const auto source_segment_start_coordinate =
+    const unsigned int source_segment_start_coordinate =
         source_node.fwd_segment_position + (reversed_source ? 1 : 0);
     const auto source_node_id =
         reversed_source ? source_node.reverse_segment_id.id : source_node.forward_segment_id.id;
@@ -59,6 +59,10 @@ inline LegGeometry assembleGeometry(const datafacade::BaseDataFacade &facade,
 
     geometry.osm_node_ids.push_back(
         facade.GetOSMNodeIDOfNode(source_geometry(source_segment_start_coordinate)));
+
+    const bool source_is_osrm_node = (source_segment_start_coordinate == source_geometry.front() ||
+                                      source_segment_start_coordinate == source_geometry.back());
+    geometry.is_osrm_node.push_back(source_is_osrm_node);
 
     auto cumulative_distance = 0.;
     auto current_distance = 0.;
@@ -100,6 +104,7 @@ inline LegGeometry assembleGeometry(const datafacade::BaseDataFacade &facade,
                 path_point.datasource_id});
             geometry.locations.push_back(std::move(coordinate));
             geometry.osm_node_ids.push_back(osm_node_id);
+            geometry.is_osrm_node.push_back(path_point.is_osrm_node);
         }
     }
     current_distance =
@@ -155,11 +160,15 @@ inline LegGeometry assembleGeometry(const datafacade::BaseDataFacade &facade,
     // fwd_segment_position:  1
     // target node fwd:       2  0 -> 1 -> 2
     // target node rev:       1       1 <- 2 <- 3
-    const auto target_segment_end_coordinate =
+    const unsigned int target_segment_end_coordinate =
         target_node.fwd_segment_position + (reversed_target ? 0 : 1);
     const auto target_geometry = facade.GetUncompressedForwardGeometry(target_geometry_id);
     geometry.osm_node_ids.push_back(
         facade.GetOSMNodeIDOfNode(target_geometry(target_segment_end_coordinate)));
+
+    const bool target_is_osrm_node = (target_segment_end_coordinate == target_geometry.front() ||
+                                      target_segment_end_coordinate == target_geometry.back());
+    geometry.is_osrm_node.push_back(target_is_osrm_node);
 
     BOOST_ASSERT(geometry.segment_distances.size() == geometry.segment_offsets.size() - 1);
     BOOST_ASSERT(geometry.locations.size() > geometry.segment_distances.size());
