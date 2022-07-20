@@ -1,3 +1,5 @@
+# THIS REPOSITORY IS DEPRECATED. PLEASE DON'T USE IT!
+
 ## Open Source Routing Machine
 
 | Linux / macOS | Windows | Code Coverage |
