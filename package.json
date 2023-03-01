@@ -57,7 +57,7 @@
     "docbox": "^1.0.11",
     "documentation": "^4.0.0",
     "eslint": "^5.16.0",
-    "faucet": "^0.0.1",
+    "faucet": "^0.0.4",
     "jsonpath": "^1.1.0",
     "node-timeout": "0.0.4",
     "polyline": "^0.2.0",
