@@ -44,7 +44,7 @@
     "@babel/preset-react": "^7.14.5",
     "acorn": "^8.4.0",
     "ansi-escape-sequences": "^5.1.2",
-    "aws-sdk": "~2.0.31",
+    "aws-sdk": "~2.1354.0",
     "babel-plugin-transform-class-properties": "^6.24.1",
     "babelify": "^10.0.0",
     "browserify": "^17.0.0",
